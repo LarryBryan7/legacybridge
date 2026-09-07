@@ -27,10 +27,19 @@ com.legacybridge
 │   ├── entity       -> modelo JPA (Operation, OperationStatus)
 │   ├── repository   -> acceso a datos (Spring Data JPA)
 │   └── service      -> lógica de negocio
+├── auth
+│   ├── controller   -> POST /api/v1/auth/login
+│   ├── dto          -> LoginRequest / LoginResponse
+│   ├── entity       -> User, Role (ROLE_USER, ROLE_ADMIN)
+│   ├── repository   -> UserRepository
+│   ├── service       -> AuthenticationService, UserDetailsServiceImpl
+│   ├── security     -> JwtService, JwtAuthenticationFilter
+│   └── DemoUserSeeder (solo desarrollo)
 ├── common
 │   └── exception    -> manejo global de errores (@RestControllerAdvice)
 └── config
-    └── OpenApiConfig
+    ├── OpenApiConfig
+    └── SecurityConfig
 ```
 
 Flujo de una request típica (`POST /api/v1/operations`):
@@ -49,26 +58,46 @@ La entidad `Operation` nunca se expone directamente: los `Controller` solo habla
 
 ```
 Aplicación moderna
-      ↓ REST / JSON
-  LegacyBridge   ← estamos aquí (Fase 1: núcleo de dominio)
-      ↓ SOAP / XML   (Fase 2+: Legacy Adapter)
+      ↓ REST / JSON  (protegido con JWT desde la Fase 2)
+  LegacyBridge   ← estamos aquí (Fase 2: dominio + seguridad)
+      ↓ SOAP / XML   (Fase 3+: Legacy Adapter)
  Sistema Legacy
 ```
 
-## 4. Tecnologías utilizadas (Fase 1)
+### Autenticación y autorización (Fase 2)
+
+```
+Cliente
+  → POST /api/v1/auth/login (usuario + password)
+  → AuthController → AuthenticationService
+  → AuthenticationManager (Spring Security) valida contra UserDetailsServiceImpl + BCrypt
+  → JwtService genera el JWT
+  → Cliente recibe { token, tokenType, expiresInSeconds }
+
+Cliente
+  → Authorization: Bearer <token>
+  → JwtAuthenticationFilter (OncePerRequestFilter) valida el token y puebla el SecurityContext
+  → SecurityFilterChain exige estar autenticado (y, en POST /operations, ROLE_ADMIN vía @PreAuthorize)
+  → OperationController → OperationService → OperationRepository
+```
+
+`GET /api/v1/operations*` requiere solo estar autenticado (`ROLE_USER` o `ROLE_ADMIN`). `POST /api/v1/operations` requiere específicamente `ROLE_ADMIN` — una operación financiera no la autoriza cualquiera.
+
+## 4. Tecnologías utilizadas
 
 | Categoría | Tecnología |
 |---|---|
 | Lenguaje | Java 17 |
 | Framework | Spring Boot 3.3.4 (Spring MVC, Spring Core/DI, Spring Data JPA) |
+| Seguridad | Spring Security, JWT (JJWT 0.12.6), BCrypt |
 | Build | Maven |
-| Base de datos | Microsoft SQL Server |
+| Base de datos | Microsoft SQL Server (H2 en memoria solo para tests) |
 | Validación | Bean Validation (Jakarta Validation) |
 | Documentación | springdoc-openapi (Swagger UI) |
-| Testing | JUnit 5, Mockito, MockMvc |
+| Testing | JUnit 5, Mockito, MockMvc, Spring Security Test |
 | Utilidades | Lombok |
 
-No incluye todavía: Kafka, WebFlux, Resilience4j, OAuth2, Docker, Jenkins, Quarkus ni microservicios — quedan para fases posteriores (ver Roadmap).
+No incluye todavía: Kafka, WebFlux, Resilience4j, Docker, Jenkins, Quarkus ni microservicios — quedan para fases posteriores (ver Roadmap).
 
 ## 5. Cómo ejecutar el proyecto
 
@@ -125,11 +154,37 @@ En esta fase, Hibernate crea/actualiza el esquema automáticamente (`ddl-auto: u
 
 ## 7. Endpoints
 
-| Método | Ruta | Descripción |
+| Método | Ruta | Auth requerida | Descripción |
+|---|---|---|---|
+| `POST` | `/api/v1/auth/login` | Ninguna | Autentica y devuelve un JWT |
+| `GET` | `/api/v1/operations` | Cualquier usuario autenticado | Lista todas las operaciones |
+| `GET` | `/api/v1/operations/{id}` | Cualquier usuario autenticado | Obtiene una operación por id |
+| `POST` | `/api/v1/operations` | `ROLE_ADMIN` | Crea una operación (queda en estado `PENDING`) |
+
+### Usuarios de desarrollo
+
+Al arrancar, `DemoUserSeeder` crea (si no existen) dos usuarios — **solo para desarrollo**, nunca en producción:
+
+| Usuario | Password | Rol |
 |---|---|---|
-| `GET` | `/api/v1/operations` | Lista todas las operaciones |
-| `GET` | `/api/v1/operations/{id}` | Obtiene una operación por id |
-| `POST` | `/api/v1/operations` | Crea una operación (queda en estado `PENDING`) |
+| `user.demo` | `User#12345` | `ROLE_USER` |
+| `admin.demo` | `Admin#12345` | `ROLE_ADMIN` |
+
+### Probar el flujo con curl
+
+```bash
+# 1. Login
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin.demo","password":"Admin#12345"}' | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+
+# 2. Usar el token
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8080/api/v1/operations
+
+curl -X POST http://localhost:8080/api/v1/operations \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"externalId":"OP-2001","amount":100.00,"currency":"PEN"}'
+```
 
 ## 8. Cómo acceder a Swagger
 
@@ -140,7 +195,40 @@ Con la aplicación corriendo:
 
 ## 9. Ejemplos de request/response
 
-**Crear una operación**
+**Login**
+
+```http
+POST /api/v1/auth/login
+Content-Type: application/json
+
+{
+  "username": "admin.demo",
+  "password": "Admin#12345"
+}
+```
+
+```json
+{
+  "token": "eyJhbGciOiJIUzM4NCJ9...",
+  "tokenType": "Bearer",
+  "expiresInSeconds": 3600
+}
+```
+
+**Login fallido (401)**
+
+```json
+{
+  "timestamp": "2026-09-07T10:00:00Z",
+  "status": 401,
+  "error": "Unauthorized",
+  "message": "Usuario o contraseña incorrectos",
+  "path": "/api/v1/auth/login",
+  "details": []
+}
+```
+
+**Crear una operación (requiere `Authorization: Bearer <token>` de un `ROLE_ADMIN`)**
 
 ```http
 POST /api/v1/operations
@@ -197,14 +285,15 @@ Content-Type: application/json
 mvn test
 ```
 
-Incluye pruebas unitarias del `OperationService` con Mockito (creación, búsqueda exitosa, búsqueda con id inexistente) y pruebas de slice (`@WebMvcTest`) sobre la validación del `OperationController`.
+Incluye, además de los tests de la Fase 1: pruebas unitarias de `JwtService` (generación/validación/token manipulado), pruebas unitarias de `AuthenticationService` con Mockito (login exitoso, credenciales incorrectas), y `AuthenticationIntegrationTest` (`@SpringBootTest` + H2) que cubre extremo a extremo login, endpoint protegido sin token, con token válido, con token inválido, y autorización por rol (`ROLE_USER` vs `ROLE_ADMIN`).
 
 ## 10. Roadmap de futuras fases
 
-- **Fase 2 — Legacy Adapter:** interfaz `LegacyOperationGateway` + implementación SOAP/XML contra un **Mock Legacy SOAP System** propio (sin datos reales de ningún proveedor).
-- **Fase 3 — Resiliencia:** Resilience4j (circuit breaker, retry, timeout) en las llamadas al legacy.
-- **Fase 4 — Seguridad:** Spring Security + JWT/OAuth2 para proteger la API.
+- ~~Fase 2 — Seguridad: Spring Security + JWT, roles ROLE_USER/ROLE_ADMIN.~~ **Completada.**
+- **Fase 3 — Legacy Adapter:** interfaz `LegacyOperationGateway` + implementación SOAP/XML contra un **Mock Legacy SOAP System** propio (sin datos reales de ningún proveedor).
+- **Fase 4 — Resiliencia:** Resilience4j (circuit breaker, retry, timeout) en las llamadas al legacy.
 - **Fase 5 — Observabilidad y eventos:** métricas/trazas, y Kafka para publicar eventos de cambio de estado de una `Operation`.
 - **Fase 6 — Escalado:** WebFlux para las llamadas concurrentes al legacy, contenedorización con Docker y pipeline CI/CD (Jenkins o GitHub Actions).
+- **Futuro (no planificado aún):** OAuth2 como alternativa/complemento al login propio (p. ej. login corporativo vía un IdP), y un endpoint de registro real que reemplace a `DemoUserSeeder`.
 
 Estas tecnologías se incorporan solo cuando el problema real lo justifique, no por completar un checklist.

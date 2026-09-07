@@ -25,3 +25,9 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+# jwt.secret: SOLO valor de desarrollo. En cualquier entorno real debe venir
+# de una variable de entorno (JWT_SECRET) o un vault, nunca del repositorio.
+jwt:
+  secret: ${JWT_SECRET:dev-only-secret-legacybridge-please-override-in-prod-64chars!!}
+  expiration-ms: ${JWT_EXPIRATION_MS:3600000}

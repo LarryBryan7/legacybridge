@@ -1,0 +1,21 @@
+# Configuracion exclusiva para @SpringBootTest: usa H2 en memoria en vez
+# de SQL Server, para que los tests corran solos, rapido y sin depender
+# de un contenedor externo. Hibernate detecta el dialecto de H2
+# automaticamente a partir de la conexion; el esquema resultante es
+# equivalente al de SQL Server para lo que este proyecto usa (IDENTITY,
+# decimal, varchar, indice unico).
+spring:
+  datasource:
+    url: jdbc:h2:mem:legacybridge-test;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+jwt:
+  secret: test-only-secret-legacybridge-not-for-any-real-environment-32b
+  expiration-ms: 3600000
