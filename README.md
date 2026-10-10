@@ -2,7 +2,9 @@
 
 API REST en Spring Boot que funciona como pasarela entre aplicaciones modernas (REST/JSON) y un sistema core legacy que solo expone servicios SOAP/XML. El cliente nunca ve XML: LegacyBridge autentica, valida, traduce la petición a SOAP, la envía al sistema legacy y guarda el estado de cada operación.
 
-Es el problema típico del sector financiero: canales digitales nuevos que necesitan hablar con un core bancario antiguo sin acoplarse a su protocolo.
+Es el problema típico del sector financiero: canales digitales nuevos que necesitan hablar con un core bancario antiguo sin acoplarse a su protocolo. El proyecto nace de mi experiencia profesional integrando el core bancario **Bantotal** mediante servicios **SOAP en GeneXus** consumidos desde **Java**.
+
+`Java 17` · `Spring Boot` · `SOAP / WSDL / XSD` · `XML (JAXB)` · `Spring-WS` · `REST` · `Spring Security / JWT` · `SQL Server` · `JUnit / Mockito`
 
 > **Proyecto personal de portafolio.** No reproduce código, endpoints, WSDL, entidades ni reglas de negocio de ningún sistema empresarial real. Toda la integración corre contra un **Mock Legacy System** propio incluido en este repositorio.
 
@@ -37,6 +39,7 @@ REST y SOAP no reemplazan HTTP: ambos viajan sobre HTTP. Lo que cambia entre los
 
 ## 1. Qué demuestra este proyecto
 
+- **Backend Java para integración con sistemas legacy:** API en Java 17 y Spring Boot que expone un core legacy SOAP como una API REST moderna, el mismo tipo de integración que se hace con cores bancarios.
 - **Integración SOAP contract-first:** contrato XSD, WSDL publicado, cliente con Spring-WS (`WebServiceTemplate`) y mapeo objeto ↔ XML con JAXB.
 - **Patrón Gateway:** la lógica de negocio depende de una interfaz (`LegacyOperationGateway`), nunca de SOAP. Cambiar el protocolo del legacy solo afecta a una clase.
 - **Seguridad:** Spring Security con JWT, roles `ROLE_USER` / `ROLE_ADMIN` con `@PreAuthorize`, contraseñas con BCrypt.
