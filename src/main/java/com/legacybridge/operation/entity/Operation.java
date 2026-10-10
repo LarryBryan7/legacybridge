@@ -18,9 +18,9 @@ import java.math.BigDecimal;
 import java.time.Instant;
 
 /**
- * Representa una operacion de negocio que, en fases posteriores, sera
- * enviada al sistema legacy a traves del Legacy Adapter. En esta fase
- * solo modela el ciclo de vida local (PENDING/AUTHORIZED/REJECTED).
+ * Representa una operacion de negocio que se envia al sistema legacy a
+ * traves de LegacyOperationGateway (Fase 3). El ciclo de vida es
+ * PENDING -> PROCESSING -> COMPLETED/FAILED.
  */
 @Entity
 @Table(name = "operations")
@@ -51,6 +51,10 @@ public class Operation {
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
+
+    /** Id que asigna el sistema legacy cuando autoriza la operacion (null hasta entonces). */
+    @Column(name = "legacy_operation_id", length = 64)
+    private String legacyOperationId;
 
     @PrePersist
     void onCreate() {

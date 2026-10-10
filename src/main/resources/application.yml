@@ -31,3 +31,10 @@ springdoc:
 jwt:
   secret: ${JWT_SECRET:dev-only-secret-legacybridge-please-override-in-prod-64chars!!}
   expiration-ms: ${JWT_EXPIRATION_MS:3600000}
+
+# URL del sistema legacy (SOAP/XML). Por defecto apunta al Mock Legacy
+# System embebido en esta misma app (ver LegacySoapConfig). En un entorno
+# real, LEGACY_SOAP_URL apuntaria al sistema legacy verdadero.
+legacy:
+  soap:
+    endpoint-url: ${LEGACY_SOAP_URL:http://localhost:8080/ws/legacy}

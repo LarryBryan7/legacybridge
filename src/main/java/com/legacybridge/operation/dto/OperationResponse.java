@@ -16,6 +16,7 @@ public record OperationResponse(
         BigDecimal amount,
         String currency,
         OperationStatus status,
+        String legacyOperationId,
         Instant createdAt,
         Instant updatedAt
 ) {
@@ -27,6 +28,7 @@ public record OperationResponse(
                 operation.getAmount(),
                 operation.getCurrency(),
                 operation.getStatus(),
+                operation.getLegacyOperationId(),
                 operation.getCreatedAt(),
                 operation.getUpdatedAt()
         );

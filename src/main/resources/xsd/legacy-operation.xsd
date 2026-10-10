@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Contrato SOAP entre LegacyBridge y el Mock Legacy System.
+  Documenta el mismo formato que producen/leen las clases anotadas con
+  JAXB en com.legacybridge.legacy.jaxb (ver package-info.java para el
+  namespace). No se genero codigo a partir de este XSD: para un
+  contrato tan acotado (1 operacion) se anotaron las clases a mano,
+  evitando la complejidad de un plugin de generacion. Este archivo se
+  usa para publicar el WSDL real en /ws/legacyOperation.wsdl.
+-->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://legacybridge.com/legacy/operation"
+           targetNamespace="http://legacybridge.com/legacy/operation"
+           elementFormDefault="qualified">
+
+    <xs:element name="authorizeOperationRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="externalId" type="xs:string"/>
+                <xs:element name="amount" type="xs:decimal"/>
+                <xs:element name="currency" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="authorizeOperationResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="legacyOperationId" type="xs:string" minOccurs="0"/>
+                <xs:element name="status" type="xs:string"/>
+                <xs:element name="message" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+</xs:schema>

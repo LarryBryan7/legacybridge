@@ -19,3 +19,11 @@ spring:
 jwt:
   secret: test-only-secret-legacybridge-not-for-any-real-environment-32b
   expiration-ms: 3600000
+
+# Puerto fijo (el default de Spring Boot cuando no se configura server.port)
+# para que el test de round-trip real (LegacyOperationExecutionIntegrationTest,
+# que arranca un servidor embebido de verdad) sepa a que URL debe apuntar
+# el cliente SOAP para llegar al Mock Legacy System embebido.
+legacy:
+  soap:
+    endpoint-url: http://localhost:8080/ws/legacy

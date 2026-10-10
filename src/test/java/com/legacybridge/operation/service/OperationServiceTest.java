@@ -1,6 +1,7 @@
 package com.legacybridge.operation.service;
 
 import com.legacybridge.common.exception.ResourceNotFoundException;
+import com.legacybridge.legacy.LegacyOperationGateway;
 import com.legacybridge.operation.dto.OperationCreateRequest;
 import com.legacybridge.operation.dto.OperationResponse;
 import com.legacybridge.operation.entity.Operation;
@@ -28,11 +29,17 @@ class OperationServiceTest {
     @Mock
     private OperationRepository operationRepository;
 
+    // No participa en estos tests (create/findById/findAll no llaman al
+    // legacy): ver OperationServiceExecuteTest para el comportamiento de
+    // execute() con LegacyOperationGateway.
+    @Mock
+    private LegacyOperationGateway legacyOperationGateway;
+
     private OperationService operationService;
 
     @Test
     void create_deberiaPersistirOperacionEnEstadoPending() {
-        operationService = new OperationService(operationRepository);
+        operationService = new OperationService(operationRepository, legacyOperationGateway);
 
         OperationCreateRequest request = new OperationCreateRequest("OP-1001", new BigDecimal("2500.00"), "PEN");
 
@@ -60,14 +67,14 @@ class OperationServiceTest {
 
     @Test
     void findById_deberiaRetornarLaOperacionCuandoExiste() {
-        operationService = new OperationService(operationRepository);
+        operationService = new OperationService(operationRepository, legacyOperationGateway);
 
         Operation existing = new Operation();
         existing.setId(5L);
         existing.setExternalId("OP-2002");
         existing.setAmount(new BigDecimal("100.00"));
         existing.setCurrency("USD");
-        existing.setStatus(OperationStatus.AUTHORIZED);
+        existing.setStatus(OperationStatus.COMPLETED);
         existing.setCreatedAt(Instant.now());
         existing.setUpdatedAt(Instant.now());
 
@@ -76,12 +83,12 @@ class OperationServiceTest {
         OperationResponse response = operationService.findById(5L);
 
         assertThat(response.id()).isEqualTo(5L);
-        assertThat(response.status()).isEqualTo(OperationStatus.AUTHORIZED);
+        assertThat(response.status()).isEqualTo(OperationStatus.COMPLETED);
     }
 
     @Test
     void findById_deberiaLanzarExcepcionCuandoNoExiste() {
-        operationService = new OperationService(operationRepository);
+        operationService = new OperationService(operationRepository, legacyOperationGateway);
 
         when(operationRepository.findById(99L)).thenReturn(Optional.empty());
 

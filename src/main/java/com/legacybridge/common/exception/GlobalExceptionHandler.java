@@ -1,5 +1,6 @@
 package com.legacybridge.common.exception;
 
+import com.legacybridge.legacy.LegacyIntegrationException;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -74,6 +75,22 @@ public class GlobalExceptionHandler {
                 details
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
+     * 502 (no 500): LegacyBridge actua de gateway y quien fallo fue el
+     * sistema legacy (upstream) - por comunicacion o por una respuesta que
+     * no se pudo interpretar -, no un error de esta API.
+     */
+    @ExceptionHandler(LegacyIntegrationException.class)
+    public ResponseEntity<ApiError> handleLegacyIntegration(LegacyIntegrationException ex, HttpServletRequest request) {
+        ApiError body = ApiError.of(
+                HttpStatus.BAD_GATEWAY.value(),
+                HttpStatus.BAD_GATEWAY.getReasonPhrase(),
+                ex.getMessage(),
+                request.getRequestURI()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(body);
     }
 
     @ExceptionHandler(DataIntegrityViolationException.class)
