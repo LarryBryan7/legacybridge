@@ -58,11 +58,6 @@ Capturas de una ejecución real contra SQL Server y el sistema legacy por SOAP. 
 
 <img src="screenshots/02-ejecutar-completed.png" alt="Operación ejecutada y autorizada por el legacy" width="100%" />
 
-<details>
-<summary><b>Ver más capturas:</b> rechazo del legacy, WSDL, seguridad y validaciones</summary>
-
-<br>
-
 **El legacy rechaza la operación** (monto mayor a 100000) y queda `FAILED`:
 
 <img src="screenshots/03-ejecutar-failed.png" alt="Operación rechazada por el legacy" width="100%" />
@@ -78,8 +73,6 @@ Capturas de una ejecución real contra SQL Server y el sistema legacy por SOAP. 
 **Validación de datos:** 400 con el detalle de cada campo inválido:
 
 <img src="screenshots/06-validacion-400.png" alt="400 Bad Request con detalle de validación" width="100%" />
-
-</details>
 
 ---
 
