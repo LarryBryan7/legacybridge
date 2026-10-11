@@ -21,19 +21,17 @@ REST y SOAP no reemplazan HTTP: ambos viajan sobre HTTP. Lo que cambia entre los
 ## Índice
 
 1. [Qué demuestra este proyecto](#1-qué-demuestra-este-proyecto)
-2. [Inicio rápido](#2-inicio-rápido)
-3. [Arquitectura](#3-arquitectura)
-4. [Integración con el sistema legacy](#4-integración-con-el-sistema-legacy)
-5. [Autenticación y autorización](#5-autenticación-y-autorización)
-6. [Endpoints](#6-endpoints)
-7. [Ejemplos de request/response](#7-ejemplos-de-requestresponse)
-8. [Manejo de errores](#8-manejo-de-errores)
-9. [Decisiones de diseño](#9-decisiones-de-diseño)
-10. [Tecnologías](#10-tecnologías)
+2. [Arquitectura](#2-arquitectura)
+3. [Integración con el sistema legacy](#3-integración-con-el-sistema-legacy)
+4. [Autenticación y autorización](#4-autenticación-y-autorización)
+5. [Endpoints](#5-endpoints)
+6. [Ejemplos de request/response](#6-ejemplos-de-requestresponse)
+7. [Manejo de errores](#7-manejo-de-errores)
+8. [Decisiones de diseño](#8-decisiones-de-diseño)
+9. [Tecnologías](#9-tecnologías)
+10. [Inicio rápido](#10-inicio-rápido)
 11. [Configuración y SQL Server](#11-configuración-y-sql-server)
 12. [Tests](#12-tests)
-13. [Limitaciones conocidas](#13-limitaciones-conocidas)
-14. [Roadmap](#14-roadmap)
 
 ---
 
@@ -49,59 +47,7 @@ REST y SOAP no reemplazan HTTP: ambos viajan sobre HTTP. Lo que cambia entre los
 
 ---
 
-## 2. Inicio rápido
-
-Requisitos: Java 17+, Maven 3.9+ y Docker (o Colima en macOS).
-
-```bash
-# 1. SQL Server local
-docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Legacybridge#1" \
-  -p 1433:1433 --name legacybridge-sqlserver -d mcr.microsoft.com/azure-sql-edge
-
-# 2. Crear la base de datos (ver sección 11 si no tienes un cliente SQL)
-
-# 3. Arrancar la API
-mvn spring-boot:run
-```
-
-- API: `http://localhost:8080`
-- Swagger UI: `http://localhost:8080/swagger-ui.html`
-- WSDL del legacy simulado: `http://localhost:8080/ws/legacyOperation.wsdl`
-
-### Usuarios de desarrollo
-
-Al arrancar, `DemoUserSeeder` crea dos usuarios **solo para desarrollo**:
-
-| Usuario | Password | Rol |
-|---|---|---|
-| `user.demo` | `User#12345` | `ROLE_USER` |
-| `admin.demo` | `Admin#12345` | `ROLE_ADMIN` |
-
-### Probar el flujo completo con curl
-
-```bash
-# 1. Login
-TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"username":"admin.demo","password":"Admin#12345"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
-
-# 2. Crear una operación
-OP_ID=$(curl -s -X POST http://localhost:8080/api/v1/operations \
-  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d '{"externalId":"OP-2001","amount":100.00,"currency":"PEN"}' \
-  | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
-
-# 3. Ejecutarla contra el sistema legacy (SOAP/XML por debajo)
-curl -X POST "http://localhost:8080/api/v1/operations/$OP_ID/execute" \
-  -H "Authorization: Bearer $TOKEN"
-```
-
-Para ver el rechazo del legacy, crea una operación con `amount` mayor a `100000`.
-
----
-
-## 3. Arquitectura
+## 2. Arquitectura
 
 Organización por feature: cada dominio es autocontenido.
 
@@ -139,7 +85,7 @@ La entidad `Operation` nunca se expone directamente: los controllers solo hablan
 
 ---
 
-## 4. Integración con el sistema legacy
+## 3. Integración con el sistema legacy
 
 ```mermaid
 sequenceDiagram
@@ -190,7 +136,7 @@ sequenceDiagram
 
 ---
 
-## 5. Autenticación y autorización
+## 4. Autenticación y autorización
 
 ```
 POST /api/v1/auth/login (usuario + password)
@@ -208,7 +154,7 @@ Consultar operaciones solo requiere estar autenticado. Crear y ejecutar exige `R
 
 ---
 
-## 6. Endpoints
+## 5. Endpoints
 
 | Método | Ruta | Requiere | Descripción |
 |---|---|---|---|
@@ -220,7 +166,7 @@ Consultar operaciones solo requiere estar autenticado. Crear y ejecutar exige `R
 
 ---
 
-## 7. Ejemplos de request/response
+## 6. Ejemplos de request/response
 
 **Login**
 
@@ -302,7 +248,7 @@ Content-Type: application/json
 
 ---
 
-## 8. Manejo de errores
+## 7. Manejo de errores
 
 Todas las respuestas de error usan el mismo contrato `ApiError` (`timestamp`, `status`, `error`, `message`, `path`, `details`), sin importar si el error nace en Bean Validation, Spring Security o la integración legacy.
 
@@ -318,7 +264,7 @@ Todas las respuestas de error usan el mismo contrato `ApiError` (`timestamp`, `s
 
 ---
 
-## 9. Decisiones de diseño
+## 8. Decisiones de diseño
 
 - **502 y no 500 ante fallas del legacy.** El error no es de LegacyBridge sino del sistema aguas arriba; 502 Bad Gateway comunica eso al cliente y a quien monitorea.
 - **`PROCESSING` se persiste antes de llamar al legacy.** Si la llamada se cae a mitad de camino, la operación no queda en `PENDING` como si nunca se hubiera intentado: queda registrado que se envió.
@@ -329,7 +275,7 @@ Todas las respuestas de error usan el mismo contrato `ApiError` (`timestamp`, `s
 
 ---
 
-## 10. Tecnologías
+## 9. Tecnologías
 
 | Categoría | Tecnología |
 |---|---|
@@ -344,6 +290,58 @@ Todas las respuestas de error usan el mismo contrato `ApiError` (`timestamp`, `s
 | Build | Maven |
 | Infraestructura local | Docker / Colima (SQL Server) |
 | Utilidades | Lombok |
+
+---
+
+## 10. Inicio rápido
+
+Requisitos: Java 17+, Maven 3.9+ y Docker (o Colima en macOS).
+
+```bash
+# 1. SQL Server local
+docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Legacybridge#1" \
+  -p 1433:1433 --name legacybridge-sqlserver -d mcr.microsoft.com/azure-sql-edge
+
+# 2. Crear la base de datos (ver sección 11 si no tienes un cliente SQL)
+
+# 3. Arrancar la API
+mvn spring-boot:run
+```
+
+- API: `http://localhost:8080`
+- Swagger UI: `http://localhost:8080/swagger-ui.html`
+- WSDL del legacy simulado: `http://localhost:8080/ws/legacyOperation.wsdl`
+
+### Usuarios de desarrollo
+
+Al arrancar, `DemoUserSeeder` crea dos usuarios **solo para desarrollo**:
+
+| Usuario | Password | Rol |
+|---|---|---|
+| `user.demo` | `User#12345` | `ROLE_USER` |
+| `admin.demo` | `Admin#12345` | `ROLE_ADMIN` |
+
+### Probar el flujo completo con curl
+
+```bash
+# 1. Login
+TOKEN=$(curl -s -X POST http://localhost:8080/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin.demo","password":"Admin#12345"}' \
+  | python3 -c "import sys,json;print(json.load(sys.stdin)['token'])")
+
+# 2. Crear una operación
+OP_ID=$(curl -s -X POST http://localhost:8080/api/v1/operations \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"externalId":"OP-2001","amount":100.00,"currency":"PEN"}' \
+  | python3 -c "import sys,json;print(json.load(sys.stdin)['id'])")
+
+# 3. Ejecutarla contra el sistema legacy (SOAP/XML por debajo)
+curl -X POST "http://localhost:8080/api/v1/operations/$OP_ID/execute" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Para ver el rechazo del legacy, crea una operación con `amount` mayor a `100000`.
 
 ---
 
@@ -425,30 +423,3 @@ mvn test
 > ```bash
 > mvn test -Dserver.port=18080 -Dlegacy.soap.endpoint-url=http://localhost:18080/ws/legacy
 > ```
-
----
-
-## 13. Limitaciones conocidas
-
-Es un MVP de portafolio. Lo que un sistema productivo necesitaría y aquí no está:
-
-- **Sin resiliencia ante el legacy:** no hay reintentos, circuit breaker ni timeouts configurados; una caída del legacy es un 502 inmediato.
-- **Sin idempotencia en `execute`:** se puede volver a ejecutar una operación que ya quedó en `COMPLETED`.
-- **Esquema con `ddl-auto: update`** en lugar de migraciones versionadas.
-- **Usuarios sembrados al arrancar** (`DemoUserSeeder`), sin endpoint de registro.
-- **El legacy simulado vive en la misma aplicación**; en un caso real sería un sistema externo en otra red.
-
----
-
-## 14. Roadmap
-
-- ~~Fase 1 — Dominio `Operation` con Spring Boot y JPA.~~ Completada.
-- ~~Fase 2 — Spring Security + JWT, roles `ROLE_USER` / `ROLE_ADMIN`.~~ Completada.
-- ~~Fase 3 — Integración SOAP/XML con Spring-WS contra un Mock Legacy System.~~ Completada.
-- **Resiliencia:** Resilience4j (circuit breaker, retry, timeout) en las llamadas al legacy.
-- **Idempotencia:** impedir re-ejecutar operaciones ya finalizadas.
-- **Migraciones:** Flyway o Liquibase en lugar de `ddl-auto`.
-- **Observabilidad y eventos:** métricas, trazas y publicación de cambios de estado (por ejemplo, con Kafka).
-- **Despliegue:** contenedor de la propia app y pipeline CI/CD (GitHub Actions).
-
-Estas piezas se incorporan cuando el problema lo justifique, no para completar una lista.
