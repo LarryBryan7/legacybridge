@@ -2,19 +2,17 @@
 
 API REST en Spring Boot que funciona como pasarela entre aplicaciones modernas (REST/JSON) y un sistema core legacy que solo expone servicios SOAP/XML. El cliente nunca ve XML: LegacyBridge autentica, valida, traduce la petición a SOAP, la envía al sistema legacy y guarda el estado de cada operación.
 
-Es el problema típico del sector financiero: canales digitales nuevos que necesitan hablar con un core bancario antiguo sin acoplarse a su protocolo. El proyecto nace de mi experiencia profesional integrando el core bancario **Bantotal** mediante servicios **SOAP en GeneXus** consumidos desde **Java**.
+Es el problema típico del sector financiero: canales digitales nuevos que necesitan hablar con un core bancario antiguo sin acoplarse a su protocolo. El proyecto nace de mi experiencia profesional integrando el core bancario **Bantotal** mediante servicios **SOAP en GeneXus** consumidos desde **Java** (ver el [caso de estudio de esa experiencia](https://github.com/LarryBryan7/app-aprobadores-caso-de-estudio)).
 
 `Java 17` · `Spring Boot` · `SOAP / WSDL / XSD` · `XML (JAXB)` · `Spring-WS` · `REST` · `Spring Security / JWT` · `SQL Server` · `JUnit / Mockito`
 
 > **Proyecto personal de portafolio.** No reproduce código, endpoints, WSDL, entidades ni reglas de negocio de ningún sistema empresarial real. Toda la integración corre contra un **Mock Legacy System** propio incluido en este repositorio.
 
-**Estado:** MVP completo (3 fases) · 30 tests pasando.
+**Estado:** funcional, con 30 tests automatizados pasando.
 
 ```
 Cliente  ──HTTP + REST/JSON + JWT──▶  LegacyBridge  ──HTTP + SOAP/XML──▶  Sistema legacy
 ```
-
-REST y SOAP no reemplazan HTTP: ambos viajan sobre HTTP. Lo que cambia entre los dos tramos es el formato del mensaje y el protocolo de aplicación.
 
 ---
 
@@ -423,3 +421,12 @@ mvn test
 > ```bash
 > mvn test -Dserver.port=18080 -Dlegacy.soap.endpoint-url=http://localhost:18080/ws/legacy
 > ```
+
+---
+
+## Autor
+
+**Larry Bryan Quiroz Flores** — Ingeniero de Software · GeneXus · Bantotal · Java · Integraciones
+
+- GitHub: [LarryBryan7](https://github.com/LarryBryan7)
+- Experiencia relacionada: [App Aprobadores — caso de estudio](https://github.com/LarryBryan7/app-aprobadores-caso-de-estudio) (servicios SOAP en GeneXus sobre Bantotal, consumidos por una app Android/Java)
