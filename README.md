@@ -19,17 +19,18 @@ Cliente  ──HTTP + REST/JSON + JWT──▶  LegacyBridge  ──HTTP + SOAP/
 ## Índice
 
 1. [Qué demuestra este proyecto](#1-qué-demuestra-este-proyecto)
-2. [Arquitectura](#2-arquitectura)
-3. [Integración con el sistema legacy](#3-integración-con-el-sistema-legacy)
-4. [Autenticación y autorización](#4-autenticación-y-autorización)
-5. [Endpoints](#5-endpoints)
-6. [Ejemplos de request/response](#6-ejemplos-de-requestresponse)
-7. [Manejo de errores](#7-manejo-de-errores)
-8. [Decisiones de diseño](#8-decisiones-de-diseño)
-9. [Tecnologías](#9-tecnologías)
-10. [Inicio rápido](#10-inicio-rápido)
-11. [Configuración y SQL Server](#11-configuración-y-sql-server)
-12. [Tests](#12-tests)
+2. [Ejecución real (Postman)](#2-ejecución-real-postman)
+3. [Arquitectura](#3-arquitectura)
+4. [Integración con el sistema legacy](#4-integración-con-el-sistema-legacy)
+5. [Autenticación y autorización](#5-autenticación-y-autorización)
+6. [Endpoints](#6-endpoints)
+7. [Ejemplos de request/response](#7-ejemplos-de-requestresponse)
+8. [Manejo de errores](#8-manejo-de-errores)
+9. [Decisiones de diseño](#9-decisiones-de-diseño)
+10. [Tecnologías](#10-tecnologías)
+11. [Inicio rápido](#11-inicio-rápido)
+12. [Configuración y SQL Server](#12-configuración-y-sql-server)
+13. [Tests](#13-tests)
 
 ---
 
@@ -45,7 +46,44 @@ Cliente  ──HTTP + REST/JSON + JWT──▶  LegacyBridge  ──HTTP + SOAP/
 
 ---
 
-## 2. Arquitectura
+## 2. Ejecución real (Postman)
+
+Capturas de una ejecución real contra SQL Server y el sistema legacy por SOAP. La colección usada está en [`postman/`](postman/LegacyBridge.postman_collection.json), lista para importar.
+
+**Llamada SOAP al sistema legacy:** request y response en XML.
+
+<img src="screenshots/01-soap-autorizar.png" alt="Llamada SOAP al sistema legacy" width="100%" />
+
+**REST → SOAP de punta a punta:** el cliente ejecuta la operación por REST, LegacyBridge la envía al legacy por SOAP y la operación queda `COMPLETED` con el id asignado por el legacy.
+
+<img src="screenshots/02-ejecutar-completed.png" alt="Operación ejecutada y autorizada por el legacy" width="100%" />
+
+<details>
+<summary><b>Ver más capturas:</b> rechazo del legacy, WSDL, seguridad y validaciones</summary>
+
+<br>
+
+**El legacy rechaza la operación** (monto mayor a 100000) y queda `FAILED`:
+
+<img src="screenshots/03-ejecutar-failed.png" alt="Operación rechazada por el legacy" width="100%" />
+
+**Contrato WSDL** publicado por el sistema legacy:
+
+<img src="screenshots/04-wsdl.png" alt="WSDL del sistema legacy" width="100%" />
+
+**Seguridad por roles:** un usuario sin `ROLE_ADMIN` recibe 403:
+
+<img src="screenshots/05-seguridad-403.png" alt="403 Forbidden" width="100%" />
+
+**Validación de datos:** 400 con el detalle de cada campo inválido:
+
+<img src="screenshots/06-validacion-400.png" alt="400 Bad Request con detalle de validación" width="100%" />
+
+</details>
+
+---
+
+## 3. Arquitectura
 
 Organización por feature: cada dominio es autocontenido.
 
@@ -83,7 +121,7 @@ La entidad `Operation` nunca se expone directamente: los controllers solo hablan
 
 ---
 
-## 3. Integración con el sistema legacy
+## 4. Integración con el sistema legacy
 
 ```mermaid
 sequenceDiagram
@@ -134,7 +172,7 @@ sequenceDiagram
 
 ---
 
-## 4. Autenticación y autorización
+## 5. Autenticación y autorización
 
 ```
 POST /api/v1/auth/login (usuario + password)
@@ -152,7 +190,7 @@ Consultar operaciones solo requiere estar autenticado. Crear y ejecutar exige `R
 
 ---
 
-## 5. Endpoints
+## 6. Endpoints
 
 | Método | Ruta | Requiere | Descripción |
 |---|---|---|---|
@@ -164,7 +202,7 @@ Consultar operaciones solo requiere estar autenticado. Crear y ejecutar exige `R
 
 ---
 
-## 6. Ejemplos de request/response
+## 7. Ejemplos de request/response
 
 **Login**
 
@@ -246,7 +284,7 @@ Content-Type: application/json
 
 ---
 
-## 7. Manejo de errores
+## 8. Manejo de errores
 
 Todas las respuestas de error usan el mismo contrato `ApiError` (`timestamp`, `status`, `error`, `message`, `path`, `details`), sin importar si el error nace en Bean Validation, Spring Security o la integración legacy.
 
@@ -262,7 +300,7 @@ Todas las respuestas de error usan el mismo contrato `ApiError` (`timestamp`, `s
 
 ---
 
-## 8. Decisiones de diseño
+## 9. Decisiones de diseño
 
 - **502 y no 500 ante fallas del legacy.** El error no es de LegacyBridge sino del sistema aguas arriba; 502 Bad Gateway comunica eso al cliente y a quien monitorea.
 - **`PROCESSING` se persiste antes de llamar al legacy.** Si la llamada se cae a mitad de camino, la operación no queda en `PENDING` como si nunca se hubiera intentado: queda registrado que se envió.
@@ -273,7 +311,7 @@ Todas las respuestas de error usan el mismo contrato `ApiError` (`timestamp`, `s
 
 ---
 
-## 9. Tecnologías
+## 10. Tecnologías
 
 | Categoría | Tecnología |
 |---|---|
@@ -291,7 +329,7 @@ Todas las respuestas de error usan el mismo contrato `ApiError` (`timestamp`, `s
 
 ---
 
-## 10. Inicio rápido
+## 11. Inicio rápido
 
 Requisitos: Java 17+, Maven 3.9+ y Docker (o Colima en macOS).
 
@@ -300,7 +338,7 @@ Requisitos: Java 17+, Maven 3.9+ y Docker (o Colima en macOS).
 docker run -e "ACCEPT_EULA=Y" -e "MSSQL_SA_PASSWORD=Legacybridge#1" \
   -p 1433:1433 --name legacybridge-sqlserver -d mcr.microsoft.com/azure-sql-edge
 
-# 2. Crear la base de datos (ver sección 11 si no tienes un cliente SQL)
+# 2. Crear la base de datos (ver sección 12 si no tienes un cliente SQL)
 
 # 3. Arrancar la API
 mvn spring-boot:run
@@ -343,7 +381,7 @@ Para ver el rechazo del legacy, crea una operación con `amount` mayor a `100000
 
 ---
 
-## 11. Configuración y SQL Server
+## 12. Configuración y SQL Server
 
 La configuración vive en `src/main/resources/application.yml` y se resuelve por variables de entorno. Los valores por defecto son **solo de desarrollo local**; el repositorio no contiene credenciales reales.
 
@@ -401,7 +439,7 @@ Hibernate crea y actualiza el esquema automáticamente (`ddl-auto: update`).
 
 ---
 
-## 12. Tests
+## 13. Tests
 
 ```bash
 mvn test

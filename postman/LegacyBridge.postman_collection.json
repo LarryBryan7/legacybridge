@@ -1,0 +1,249 @@
+{
+  "info": {
+    "name": "LegacyBridge — Gateway REST → SOAP",
+    "description": "Flujo completo de LegacyBridge: login con JWT, creación y ejecución de operaciones contra el sistema legacy por SOAP, casos de error y llamada SOAP directa al legacy simulado.\n\nEjecuta las peticiones en orden: el login guarda el token y la creación guarda el id de la operación automáticamente.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8080" },
+    { "key": "token", "value": "" },
+    { "key": "userToken", "value": "" },
+    { "key": "opId", "value": "" },
+    { "key": "opRechazadaId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Autenticación",
+      "item": [
+        {
+          "name": "Login (admin)",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('token', pm.response.json().token);"
+            ]}
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"admin.demo\",\n  \"password\": \"Admin#12345\"\n}" },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        },
+        {
+          "name": "Login (usuario sin rol admin)",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.collectionVariables.set('userToken', pm.response.json().token);"
+            ]}
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"username\": \"user.demo\",\n  \"password\": \"User#12345\"\n}" },
+            "url": "{{baseUrl}}/api/v1/auth/login"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Operaciones",
+      "item": [
+        {
+          "name": "Crear operación",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "pm.test('Estado PENDING', () => pm.expect(pm.response.json().status).to.eql('PENDING'));",
+              "pm.collectionVariables.set('opId', pm.response.json().id);"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"externalId\": \"DEMO-001\",\n  \"amount\": 2500.00,\n  \"currency\": \"PEN\"\n}" },
+            "url": "{{baseUrl}}/api/v1/operations"
+          }
+        },
+        {
+          "name": "Ejecutar operación (el legacy la autoriza)",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Estado COMPLETED', () => pm.expect(pm.response.json().status).to.eql('COMPLETED'));",
+              "pm.test('Tiene legacyOperationId', () => pm.expect(pm.response.json().legacyOperationId).to.be.a('string'));"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/operations/{{opId}}/execute"
+          }
+        },
+        {
+          "name": "Crear operación con monto alto",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('201 Created', () => pm.response.to.have.status(201));",
+              "pm.collectionVariables.set('opRechazadaId', pm.response.json().id);"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"externalId\": \"DEMO-002\",\n  \"amount\": 150000.00,\n  \"currency\": \"PEN\"\n}" },
+            "url": "{{baseUrl}}/api/v1/operations"
+          }
+        },
+        {
+          "name": "Ejecutar operación (el legacy la rechaza)",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Estado FAILED', () => pm.expect(pm.response.json().status).to.eql('FAILED'));"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/operations/{{opRechazadaId}}/execute"
+          }
+        },
+        {
+          "name": "Listar operaciones",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));"
+            ]}
+          }],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/operations"
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Seguridad y errores",
+      "item": [
+        {
+          "name": "Sin token → 401",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('401 Unauthorized', () => pm.response.to.have.status(401));"
+            ]}
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/v1/operations"
+          }
+        },
+        {
+          "name": "Usuario sin rol admin crea operación → 403",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('403 Forbidden', () => pm.response.to.have.status(403));"
+            ]}
+          }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{userToken}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"externalId\": \"DEMO-003\",\n  \"amount\": 10.00,\n  \"currency\": \"PEN\"\n}" },
+            "url": "{{baseUrl}}/api/v1/operations"
+          }
+        },
+        {
+          "name": "Datos inválidos → 400",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('400 Bad Request', () => pm.response.to.have.status(400));"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"externalId\": \"\",\n  \"amount\": 0,\n  \"currency\": \"soles\"\n}" },
+            "url": "{{baseUrl}}/api/v1/operations"
+          }
+        },
+        {
+          "name": "externalId duplicado → 409",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('409 Conflict', () => pm.response.to.have.status(409));"
+            ]}
+          }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"externalId\": \"DEMO-001\",\n  \"amount\": 2500.00,\n  \"currency\": \"PEN\"\n}" },
+            "url": "{{baseUrl}}/api/v1/operations"
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Sistema legacy (SOAP directo)",
+      "item": [
+        {
+          "name": "WSDL del sistema legacy",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/ws/legacyOperation.wsdl"
+          }
+        },
+        {
+          "name": "Autorizar operación por SOAP",
+          "event": [{
+            "listen": "test",
+            "script": { "type": "text/javascript", "exec": [
+              "pm.test('200 OK', () => pm.response.to.have.status(200));",
+              "pm.test('Respuesta SOAP con status OK', () => pm.expect(pm.response.text()).to.include('<ns2:status>OK</ns2:status>'));"
+            ]}
+          }],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "text/xml; charset=utf-8" }],
+            "body": { "mode": "raw", "raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n                  xmlns:op=\"http://legacybridge.com/legacy/operation\">\n  <soapenv:Header/>\n  <soapenv:Body>\n    <op:authorizeOperationRequest>\n      <op:externalId>DEMO-SOAP-001</op:externalId>\n      <op:amount>2500.00</op:amount>\n      <op:currency>PEN</op:currency>\n    </op:authorizeOperationRequest>\n  </soapenv:Body>\n</soapenv:Envelope>", "options": { "raw": { "language": "xml" } } },
+            "url": "{{baseUrl}}/ws/legacy"
+          }
+        },
+        {
+          "name": "Rechazo por SOAP (monto mayor a 100000)",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "text/xml; charset=utf-8" }],
+            "body": { "mode": "raw", "raw": "<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\"\n                  xmlns:op=\"http://legacybridge.com/legacy/operation\">\n  <soapenv:Header/>\n  <soapenv:Body>\n    <op:authorizeOperationRequest>\n      <op:externalId>DEMO-SOAP-002</op:externalId>\n      <op:amount>150000.00</op:amount>\n      <op:currency>PEN</op:currency>\n    </op:authorizeOperationRequest>\n  </soapenv:Body>\n</soapenv:Envelope>", "options": { "raw": { "language": "xml" } } },
+            "url": "{{baseUrl}}/ws/legacy"
+          }
+        }
+      ]
+    }
+  ]
+}
